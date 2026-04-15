@@ -44,7 +44,7 @@ def infer_column_types(df):
         num_success = coerced_num.notna().sum()
         num_rate = num_success / len(series) if len(series) > 0 else 0
 
-        coerced_date = pd.to_datetime(series, errors='coerce')
+        coerced_date = pd.to_datetime(series.astype(str).str.strip(), errors='coerce')
         date_success = coerced_date.notna().sum()
         date_rate = date_success / len(series) if len(series) > 0 else 0
 
@@ -64,7 +64,7 @@ def infer_column_types(df):
             "actual": actual,
             "inferred": inferred,
             "coerced_numeric": pd.to_numeric(df[col], errors='coerce'),
-            "coerced_datetime": pd.to_datetime(df[col], errors='coerce', infer_datetime_format=True),
+            "coerced_datetime": pd.to_datetime(df[col].astype(str).str.strip(), errors='coerce'),
         }
     return result
 
