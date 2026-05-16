@@ -653,3 +653,187 @@ def generate_cleaning_code(df, null_df, duplicate_count, outlier_df, type_info):
     lines.append("print('Saved to cleaned_dataset.csv ✅')")
 
     return "\n".join(lines)
+
+# ─────────────────────────────────────────────
+# INDUSTRY DETECTOR
+# ─────────────────────────────────────────────
+def detect_industry(df):
+    cols_lower = [c.lower() for c in df.columns]
+    col_str = " ".join(cols_lower)
+
+    scores = {
+        "sales":     0,
+        "hr":        0,
+        "medical":   0,
+        "transport": 0,
+        "finance":   0,
+        "ecommerce": 0,
+    }
+
+    # Sales signals
+    for kw in ["revenue", "sales", "order", "product", "quantity", "discount", "profit", "units"]:
+        if kw in col_str: scores["sales"] += 1
+
+    # HR signals
+    for kw in ["employee", "salary", "department", "hire", "manager", "performance", "designation", "staff"]:
+        if kw in col_str: scores["hr"] += 1
+
+    # Medical signals
+    for kw in ["patient", "diagnosis", "disease", "hospital", "doctor", "prescription", "symptom", "blood", "weight", "bmi"]:
+        if kw in col_str: scores["medical"] += 1
+
+    # Transport signals
+    for kw in ["fare", "ticket", "passenger", "flight", "seat", "boarding", "arrival", "departure", "train", "bus"]:
+        if kw in col_str: scores["transport"] += 1
+
+    # Finance signals
+    for kw in ["account", "balance", "transaction", "loan", "credit", "debit", "interest", "bank", "payment"]:
+        if kw in col_str: scores["finance"] += 1
+
+    # E-commerce signals
+    for kw in ["cart", "shipping", "return", "rating", "review", "category", "brand", "price", "sku", "inventory"]:
+        if kw in col_str: scores["ecommerce"] += 1
+
+    best = max(scores, key=scores.get)
+    if scores[best] == 0:
+        return "generic", 0
+    return best, scores[best]
+
+
+def run_industry_checks(df, type_info, industry):
+    issues = []
+
+    if industry == "sales":
+        for col in df.columns:
+            cl = col.lower()
+            if any(k in cl for k in ["revenue", "sales", "price", "profit"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    neg = (series < 0).sum()
+                    if neg > 0:
+                        issues.append(f"⚠️ '{col}' has {neg} negative values — revenue/price should be positive")
+            if any(k in cl for k in ["quantity", "units", "qty"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    zero = (series == 0).sum()
+                    if zero > 0:
+                        issues.append(f"⚠️ '{col}' has {zero} zero values — quantity should be > 0")
+            if any(k in cl for k in ["discount"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    over = (series > 100).sum()
+                    if over > 0:
+                        issues.append(f"⚠️ '{col}' has {over} values over 100% — invalid discount")
+
+    elif industry == "hr":
+        for col in df.columns:
+            cl = col.lower()
+            if any(k in cl for k in ["salary", "wage", "pay", "compensation"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    neg = (series < 0).sum()
+                    if neg > 0:
+                        issues.append(f"⚠️ '{col}' has {neg} negative salaries — invalid values")
+                    extreme = (series > 10_000_000).sum()
+                    if extreme > 0:
+                        issues.append(f"⚠️ '{col}' has {extreme} salaries over 1 crore — possible data entry error")
+            if any(k in cl for k in ["age", "years"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 18) | (series > 80)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} ages outside 18–80 — invalid for employment")
+            if any(k in cl for k in ["experience", "exp"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    neg = (series < 0).sum()
+                    over = (series > 60).sum()
+                    if neg > 0:
+                        issues.append(f"⚠️ '{col}' has {neg} negative experience values")
+                    if over > 0:
+                        issues.append(f"⚠️ '{col}' has {over} experience values over 60 years")
+
+    elif industry == "medical":
+        for col in df.columns:
+            cl = col.lower()
+            if "age" in cl:
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 0) | (series > 120)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} ages outside 0–120 — impossible values")
+            if "bmi" in cl:
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 10) | (series > 60)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} BMI values outside 10–60 — medically impossible")
+            if any(k in cl for k in ["blood_pressure", "bp", "systolic", "diastolic"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 40) | (series > 300)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} blood pressure values outside 40–300")
+            if any(k in cl for k in ["weight"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 1) | (series > 500)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} weight values outside 1–500 kg")
+
+    elif industry == "transport":
+        for col in df.columns:
+            cl = col.lower()
+            if "fare" in cl or "price" in cl or "cost" in cl:
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    neg = (series < 0).sum()
+                    if neg > 0:
+                        issues.append(f"⚠️ '{col}' has {neg} negative fares — invalid")
+            if "ticket" in cl or "id" in cl:
+                dupes = df[col].dropna().duplicated().sum()
+                if dupes > 0:
+                    issues.append(f"⚠️ '{col}' has {dupes} duplicate ticket/ID values")
+
+    elif industry == "finance":
+        for col in df.columns:
+            cl = col.lower()
+            if any(k in cl for k in ["balance", "amount", "transaction"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    extreme = (series.abs() > 1_000_000_000).sum()
+                    if extreme > 0:
+                        issues.append(f"⚠️ '{col}' has {extreme} values over 1 billion — verify these")
+            if any(k in cl for k in ["interest", "rate"]):
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 0) | (series > 100)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} interest rates outside 0–100%")
+
+    elif industry == "ecommerce":
+        for col in df.columns:
+            cl = col.lower()
+            if "rating" in cl or "review" in cl:
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    invalid = ((series < 0) | (series > 5)).sum()
+                    if invalid > 0:
+                        issues.append(f"⚠️ '{col}' has {invalid} ratings outside 0–5 — invalid")
+            if "price" in cl or "cost" in cl:
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    neg = (series < 0).sum()
+                    if neg > 0:
+                        issues.append(f"⚠️ '{col}' has {neg} negative prices — invalid")
+            if "stock" in cl or "inventory" in cl or "quantity" in cl:
+                if type_info[col]["inferred"] == "numeric":
+                    series = type_info[col]["coerced_numeric"].dropna()
+                    neg = (series < 0).sum()
+                    if neg > 0:
+                        issues.append(f"⚠️ '{col}' has {neg} negative stock values — invalid")
+
+    if not issues:
+        issues.append("✅ No domain-specific issues found — data looks valid for this industry!")
+
+    return issues

@@ -260,6 +260,57 @@ if uploaded_file:
 
     st.divider()
 
+# ── Industry Detector ─────────────────────────────────────────────────────
+    from checker import detect_industry, run_industry_checks
+
+    industry, confidence = detect_industry(df)
+
+    industry_meta = {
+        "sales":     ("🛒", "Sales Dataset",     "#00bcd4"),
+        "hr":        ("👥", "HR Dataset",         "#9c27b0"),
+        "medical":   ("🏥", "Medical Dataset",    "#f44336"),
+        "transport": ("🚢", "Transport Dataset",  "#ff9800"),
+        "finance":   ("💰", "Finance Dataset",    "#4caf50"),
+        "ecommerce": ("🛍️", "E-Commerce Dataset", "#e91e63"),
+        "generic":   ("📊", "Generic Dataset",    "#607d8b"),
+    }
+
+    icon, label, ind_color = industry_meta.get(industry, ("📊", "Generic Dataset", "#607d8b"))
+    industry_issues = run_industry_checks(df, type_info, industry)
+    issue_count = len([i for i in industry_issues if i.startswith("⚠️")])
+
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #0d1117, #1a1f2e);
+                border-left: 5px solid {ind_color};
+                border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <span style="font-size:2em">{icon}</span>
+            <div>
+                <div style="font-size:1.15em; font-weight:800; color:#fff">
+                    {label} Detected
+                </div>
+                <div style="font-size:0.78em; color:#888;">
+                    Confidence: {confidence} keyword{"s" if confidence != 1 else ""} matched
+                    &nbsp;|&nbsp; Running domain-specific checks...
+                </div>
+            </div>
+            <div style="margin-left:auto; background:{ind_color}22;
+                        border:1px solid {ind_color}88;
+                        border-radius:8px; padding:8px 16px; text-align:center;">
+                <div style="font-size:1.4em; font-weight:800; color:{ind_color}">
+                    {issue_count}
+                </div>
+                <div style="font-size:0.7em; color:#aaa">Domain Issues</div>
+            </div>
+        </div>
+        <div style="border-top:1px solid #ffffff11; padding-top:12px;">
+            {"".join(f'<div style="font-size:0.82em; color:#ccc; padding:3px 0">{issue}</div>' for issue in industry_issues)}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Summary Card ─────────────────────────────────────────────────────────
+    st.subheader("📋 Dataset Summary")
     # ── Summary Card ─────────────────────────────────────────────────────────
     st.subheader("📋 Dataset Summary")
     s1, s2, s3, s4, s5 = st.columns(5)
