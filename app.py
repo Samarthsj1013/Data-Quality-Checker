@@ -2,12 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import streamlit.components.v1 as components
 from checker import generate_ai_insights, generate_cleaning_code
 from checker import (
     load_data, check_nulls, check_duplicates, check_data_types,
     detect_outliers, quality_score, generate_suggestions, auto_clean,
     correlation_heatmap, distribution_plots, infer_column_types,
-    validate_emails, validate_dates, validate_phones, check_consistency
+    validate_emails, validate_dates, validate_phones, check_consistency,
+    detect_industry, run_industry_checks
 )
 
 st.set_page_config(page_title="Data Quality Checker", page_icon="✅", layout="wide")
@@ -20,6 +22,7 @@ with st.sidebar:
     st.markdown("### 📌 Sections")
     st.markdown("- 📊 Data Health Report")
     st.markdown("- 🏥 Column Health Cards")
+    st.markdown("- 🔬 Industry Detector")
     st.markdown("- 📋 Dataset Summary")
     st.markdown("- 🏆 Quality Score")
     st.markdown("- 🤖 AI Insights")
@@ -123,73 +126,64 @@ if uploaded_file:
         score_color = "#d50000"
         score_label = "🔴 Poor Quality"
 
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #1e1e2e, #2a2a3e);
-                border-radius: 16px; padding: 28px; margin-bottom: 24px;
-                border: 1px solid #3a3a5c;">
-        <h2 style="margin:0 0 4px 0; color: #ffffff; font-size: 1.1em;
-                   text-transform: uppercase; letter-spacing: 2px;">
+    # ── Data Health Report card ───────────────────────────────────────────────
+    components.html(f"""
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                background:linear-gradient(135deg,#1e1e2e,#2a2a3e);
+                border-radius:16px;padding:28px;margin-bottom:8px;
+                border:1px solid #3a3a5c;">
+        <h2 style="margin:0 0 4px 0;color:#fff;font-size:1.1em;
+                   text-transform:uppercase;letter-spacing:2px;">
             📊 Data Health Report
         </h2>
-        <p style="color:#888; margin:0 0 20px 0; font-size:0.85em;">
+        <p style="color:#888;margin:0 0 20px 0;font-size:0.85em;">
             Generated for: <b style="color:#aaa">{uploaded_file.name}</b>
-            &nbsp;|&nbsp; {df.shape[0]} rows × {df.shape[1]} columns
+            &nbsp;|&nbsp; {df.shape[0]} rows x {df.shape[1]} columns
         </p>
-
-        <div style="display:flex; gap:40px; margin-bottom:24px; flex-wrap:wrap;">
+        <div style="display:flex;gap:40px;margin-bottom:24px;flex-wrap:wrap;">
             <div>
-                <div style="font-size:3em; font-weight:900; color:{score_color};
-                            line-height:1">{score}</div>
-                <div style="font-size:0.85em; color:#888; margin-top:4px">
+                <div style="font-size:3em;font-weight:900;color:{score_color};line-height:1;">
+                    {score}
+                </div>
+                <div style="font-size:0.85em;color:#888;margin-top:4px;">
                     Quality Score &nbsp; {score_label}
                 </div>
             </div>
-            <div style="flex:1; min-width:200px;">
-                <div style="color:#aaa; font-size:0.8em; margin-bottom:8px">
-                    DATA READINESS
-                </div>
-                <div style="font-family:monospace; font-size:1.1em;
-                            color:{score_color}; letter-spacing:2px">
+            <div style="flex:1;min-width:200px;">
+                <div style="color:#aaa;font-size:0.8em;margin-bottom:8px;">DATA READINESS</div>
+                <div style="font-family:monospace;font-size:1.1em;
+                            color:{score_color};letter-spacing:2px;">
                     {progress_bar}
                 </div>
-                <div style="color:#888; font-size:0.78em; margin-top:6px">
+                <div style="color:#888;font-size:0.78em;margin-top:6px;">
                     {readiness}% ready for analysis
                 </div>
             </div>
         </div>
-
-        <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <div style="background:#ff000022; border:1px solid #ff444466;
-                        border-radius:10px; padding:12px 20px; min-width:120px;">
-                <div style="font-size:1.8em; font-weight:800; color:#ff4444">
-                    {len(critical)}
-                </div>
-                <div style="color:#ff8888; font-size:0.8em">Critical Issues</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <div style="background:#ff000022;border:1px solid #ff444466;
+                        border-radius:10px;padding:12px 20px;min-width:120px;">
+                <div style="font-size:1.8em;font-weight:800;color:#ff4444;">{len(critical)}</div>
+                <div style="color:#ff8888;font-size:0.8em;">Critical Issues</div>
             </div>
-            <div style="background:#ffa00022; border:1px solid #ffa00066;
-                        border-radius:10px; padding:12px 20px; min-width:120px;">
-                <div style="font-size:1.8em; font-weight:800; color:#ffa000">
-                    {len(warnings)}
-                </div>
-                <div style="color:#ffcc88; font-size:0.8em">Warnings</div>
+            <div style="background:#ffa00022;border:1px solid #ffa00066;
+                        border-radius:10px;padding:12px 20px;min-width:120px;">
+                <div style="font-size:1.8em;font-weight:800;color:#ffa000;">{len(warnings)}</div>
+                <div style="color:#ffcc88;font-size:0.8em;">Warnings</div>
             </div>
-            <div style="background:#00c85322; border:1px solid #00c85366;
-                        border-radius:10px; padding:12px 20px; min-width:120px;">
-                <div style="font-size:1.8em; font-weight:800; color:#00c853">
-                    {len(passed)}
-                </div>
-                <div style="color:#88ffaa; font-size:0.8em">Columns Passed</div>
+            <div style="background:#00c85322;border:1px solid #00c85366;
+                        border-radius:10px;padding:12px 20px;min-width:120px;">
+                <div style="font-size:1.8em;font-weight:800;color:#00c853;">{len(passed)}</div>
+                <div style="color:#88ffaa;font-size:0.8em;">Columns Passed</div>
             </div>
-            <div style="background:#2979ff22; border:1px solid #2979ff66;
-                        border-radius:10px; padding:12px 20px; min-width:120px;">
-                <div style="font-size:1.8em; font-weight:800; color:#2979ff">
-                    {total_issues}
-                </div>
-                <div style="color:#88aaff; font-size:0.8em">Total Issues</div>
+            <div style="background:#2979ff22;border:1px solid #2979ff66;
+                        border-radius:10px;padding:12px 20px;min-width:120px;">
+                <div style="font-size:1.8em;font-weight:800;color:#2979ff;">{total_issues}</div>
+                <div style="color:#88aaff;font-size:0.8em;">Total Issues</div>
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """, height=280)
 
     if critical or warnings:
         with st.expander("🔍 View All Issues", expanded=False):
@@ -204,8 +198,9 @@ if uploaded_file:
 
     # ── Column Health Cards ───────────────────────────────────────────────────
     st.markdown("### 🏥 Column Health Cards")
+    col_names    = list(df.columns)
     cols_per_row = 4
-    col_names = list(df.columns)
+
     for i in range(0, len(col_names), cols_per_row):
         row_cols = st.columns(cols_per_row)
         for j, col_name in enumerate(col_names[i:i + cols_per_row]):
@@ -233,84 +228,83 @@ if uploaded_file:
                     border_color = "#00c853"
                     status       = "✅ Healthy"
 
-                fill     = int((100 - missing_pct) / 10)
-                fill_bar = "█" * fill + "░" * (10 - fill)
+                fill         = max(0, min(10, int((100 - missing_pct) / 10)))
+                fill_bar     = "█" * fill + "░" * (10 - fill)
+                outlier_text = f" | {outlier_count} outliers" if outlier_count > 0 else ""
 
-                st.markdown(f"""
-                <div style="background:{card_color}; border:1px solid {border_color};
-                            border-radius:10px; padding:12px; margin-bottom:8px;
-                            min-height:120px;">
-                    <div style="font-weight:700; font-size:0.85em;
-                                color:#fff; margin-bottom:4px;
-                                white-space:nowrap; overflow:hidden;
-                                text-overflow:ellipsis;" title="{col_name}">
-                        {col_name}
-                    </div>
-                    <div style="font-size:0.7em; color:#aaa; margin-bottom:6px">
+                components.html(f"""
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                            background:{card_color};border:1px solid {border_color};
+                            border-radius:10px;padding:12px;margin-bottom:4px;">
+                    <div style="font-weight:700;font-size:0.9em;color:#fff;margin-bottom:4px;
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                         title="{col_name}">{col_name}</div>
+                    <div style="font-size:0.72em;color:#aaa;margin-bottom:6px;">
                         {col_type} &nbsp;|&nbsp; {status}
                     </div>
-                    <div style="font-family:monospace; font-size:0.75em;
-                                color:{border_color}">{fill_bar}</div>
-                    <div style="font-size:0.7em; color:#888; margin-top:4px">
-                        {round(100 - missing_pct, 1)}% complete
-                        {f"&nbsp;|&nbsp; {outlier_count} outliers" if outlier_count > 0 else ""}
+                    <div style="font-family:monospace;font-size:0.8em;color:{border_color};">
+                        {fill_bar}
+                    </div>
+                    <div style="font-size:0.7em;color:#888;margin-top:4px;">
+                        {round(100 - missing_pct, 1)}% complete{outlier_text}
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """, height=110)
 
     st.divider()
 
-# ── Industry Detector ─────────────────────────────────────────────────────
-    from checker import detect_industry, run_industry_checks
-
+    # ── Industry Detector ─────────────────────────────────────────────────────
     industry, confidence = detect_industry(df)
 
     industry_meta = {
-        "sales":     ("🛒", "Sales Dataset",     "#00bcd4"),
-        "hr":        ("👥", "HR Dataset",         "#9c27b0"),
-        "medical":   ("🏥", "Medical Dataset",    "#f44336"),
-        "transport": ("🚢", "Transport Dataset",  "#ff9800"),
-        "finance":   ("💰", "Finance Dataset",    "#4caf50"),
-        "ecommerce": ("🛍️", "E-Commerce Dataset", "#e91e63"),
-        "generic":   ("📊", "Generic Dataset",    "#607d8b"),
+        "sales":     ("🛒", "Sales Dataset",      "#00bcd4"),
+        "hr":        ("👥", "HR Dataset",          "#9c27b0"),
+        "medical":   ("🏥", "Medical Dataset",     "#f44336"),
+        "transport": ("🚢", "Transport Dataset",   "#ff9800"),
+        "finance":   ("💰", "Finance Dataset",     "#4caf50"),
+        "ecommerce": ("🛍️",  "E-Commerce Dataset", "#e91e63"),
+        "generic":   ("📊", "Generic Dataset",     "#607d8b"),
     }
 
-    icon, label, ind_color = industry_meta.get(industry, ("📊", "Generic Dataset", "#607d8b"))
+    icon, ind_label, ind_color = industry_meta.get(industry, ("📊", "Generic Dataset", "#607d8b"))
     industry_issues = run_industry_checks(df, type_info, industry)
-    issue_count = len([i for i in industry_issues if i.startswith("⚠️")])
+    issue_count     = len([x for x in industry_issues if x.startswith("⚠️")])
+    issues_html     = "".join(
+        f'<div style="font-size:0.82em;color:#ccc;padding:3px 0;">{iss}</div>'
+        for iss in industry_issues
+    )
 
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #0d1117, #1a1f2e);
-                border-left: 5px solid {ind_color};
-                border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;">
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-            <span style="font-size:2em">{icon}</span>
+    components.html(f"""
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                background:linear-gradient(135deg,#0d1117,#1a1f2e);
+                border-left:5px solid {ind_color};
+                border-radius:12px;padding:20px 24px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <span style="font-size:2em;">{icon}</span>
             <div>
-                <div style="font-size:1.15em; font-weight:800; color:#fff">
-                    {label} Detected
+                <div style="font-size:1.15em;font-weight:800;color:#fff;">
+                    {ind_label} Detected
                 </div>
-                <div style="font-size:0.78em; color:#888;">
+                <div style="font-size:0.78em;color:#888;">
                     Confidence: {confidence} keyword{"s" if confidence != 1 else ""} matched
                     &nbsp;|&nbsp; Running domain-specific checks...
                 </div>
             </div>
-            <div style="margin-left:auto; background:{ind_color}22;
+            <div style="margin-left:auto;background:{ind_color}22;
                         border:1px solid {ind_color}88;
-                        border-radius:8px; padding:8px 16px; text-align:center;">
-                <div style="font-size:1.4em; font-weight:800; color:{ind_color}">
-                    {issue_count}
-                </div>
-                <div style="font-size:0.7em; color:#aaa">Domain Issues</div>
+                        border-radius:8px;padding:8px 16px;text-align:center;">
+                <div style="font-size:1.4em;font-weight:800;color:{ind_color};">{issue_count}</div>
+                <div style="font-size:0.7em;color:#aaa;">Domain Issues</div>
             </div>
         </div>
-        <div style="border-top:1px solid #ffffff11; padding-top:12px;">
-            {"".join(f'<div style="font-size:0.82em; color:#ccc; padding:3px 0">{issue}</div>' for issue in industry_issues)}
+        <div style="border-top:1px solid #ffffff11;padding-top:12px;">
+            {issues_html}
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """, height=max(160, 120 + len(industry_issues) * 28))
 
-    # ── Summary Card ─────────────────────────────────────────────────────────
-    st.subheader("📋 Dataset Summary")
+    st.divider()
+
     # ── Summary Card ─────────────────────────────────────────────────────────
     st.subheader("📋 Dataset Summary")
     s1, s2, s3, s4, s5 = st.columns(5)
@@ -384,7 +378,6 @@ if uploaded_file:
         st.metric("Total Duplicates (normalized)", duplicate_count)
         dup_percent = round((duplicate_count / len(df)) * 100, 2)
         st.metric("Duplicate %", f"{dup_percent}%")
-
         st.subheader("🔵 Data Types")
         st.dataframe(dtype_df)
 
@@ -404,7 +397,6 @@ if uploaded_file:
     # ── Validation Section ────────────────────────────────────────────────────
     st.divider()
     st.subheader("🔍 Data Validation")
-
     v1, v2, v3, v4 = st.columns(4)
 
     with v1:
